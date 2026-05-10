@@ -1,5 +1,5 @@
 import os
-from langchain_chroma import Chroma
+from langchain_pinecone import PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
@@ -9,36 +9,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Step 1 - Embeddings
+# Step 1 - Initialize Pinecone vector store
+print("Loading vector store from Pinecone...")
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-
-# Step 2 - Check and load vector store
-chroma_path = r"D:\lang_basic\chroma_db"
-
-if not os.path.exists(chroma_path) or not os.listdir(chroma_path):
-    print("❌ No vector store found! Please run ingest.py first.")
-    exit()
-
-print("Loading vector store from disk...")
-vectorstore = Chroma(
-    persist_directory=chroma_path,
-    embedding_function=embeddings
+vectorstore = PineconeVectorStore(
+    index_name="supportmindbot",
+    embedding=embeddings
 )
-print(f"✅ Vector store loaded! Total vectors: {vectorstore._collection.count()}")
+print("✅ Vector store loaded!")
 
-# Step 3 - Retriever
+# Step 2 - Retriever
 retriever = vectorstore.as_retriever(
     search_type="similarity",
     search_kwargs={"k": 4}
 )
 
-# Step 4 - Simple memory using plain list
+# Step 3 - Simple memory using plain list
 chat_history = []
 
-# Step 5 - Prompt with memory
+# Step 4 - Prompt with memory
 prompt = ChatPromptTemplate.from_messages([
-    ("system", """You are a helpful assistant. Answer the question using 
-ONLY the context provided below.
+    ("system", """You are a helpful customer support assistant. 
+Answer the question using ONLY the context provided below.
 If the answer is not in the context, say 'I don't know based on the document.'
 
 Context:
@@ -47,19 +39,18 @@ Context:
     ("human", "{question}")
 ])
 
-# Step 6 - LLM
+# Step 5 - LLM
 llm = ChatOpenAI(
     model="gpt-4o-mini",
     temperature=0
 )
 
-# Step 7 - Format docs helper
+# Step 6 - Format docs helper
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-# Step 8 - Ask function with memory
+# Step 7 - Ask function with memory
 def ask(question):
-    # keep last 5 exchanges = 10 messages
     history = chat_history[-10:]
 
     chain = (
@@ -73,7 +64,6 @@ def ask(question):
         | StrOutputParser()
     )
 
-    # stream answer token by token
     full_answer = ""
     print("\nBot: ", end="")
     for chunk in chain.stream(question):
@@ -81,14 +71,13 @@ def ask(question):
         full_answer += chunk
     print()
 
-    # save question and answer to memory
     chat_history.append(HumanMessage(content=question))
     chat_history.append(AIMessage(content=full_answer))
 
     return full_answer
 
-# Step 9 - Chat loop
-print("\n✅ SQL Document Q&A Bot with Memory ready!")
+# Step 8 - Chat loop
+print("\n✅ SupportMindBot ready!")
 print("Type your question or 'exit' to quit.")
 print("Type 'clear' to reset memory.\n")
 print("-" * 40)
