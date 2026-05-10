@@ -1,6 +1,7 @@
-.env
+﻿.env
 .venv/
 chroma_db/
 __pycache__/
 *.pyc
 docs/
+inget1.txt
