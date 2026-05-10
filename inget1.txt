@@ -1,0 +1,52 @@
+import os
+import shutil
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Step 1 - Load
+loader = PyPDFLoader(r"D:\lang_basic\docs\Advanced+SQL+Querying.pdf")
+pages = loader.load()
+print(f"Total pages loaded: {len(pages)}")
+
+# Step 2 - Split
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200,
+    length_function=len,
+    separators=["\n\n", "\n", " ", ""]
+)
+chunks = splitter.split_documents(pages)
+print(f"Total chunks created: {len(chunks)}")
+
+# Step 3 - Embeddings
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Step 4 - Clear old vector store and create fresh
+chroma_path = r"D:\lang_basic\chroma_db"
+if os.path.exists(chroma_path):
+    shutil.rmtree(chroma_path)
+    print("\nOld vector store cleared!")
+
+print("Embedding all chunks and saving to ChromaDB...")
+vectorstore = Chroma.from_documents(
+    documents=chunks,
+    embedding=embeddings,
+    persist_directory=chroma_path   # ✅ correct folder
+)
+print(f"Total vectors stored: {vectorstore._collection.count()}")
+
+# Step 5 - Test similarity search
+print("\n--- Testing Similarity Search ---")
+query = "what is this document about?"
+results = vectorstore.similarity_search(query, k=3)
+
+for i, doc in enumerate(results):
+    print(f"\nResult {i+1}:")
+    print(f"Source : {doc.metadata.get('source')}")
+    print(f"Page   : {doc.metadata.get('page')}")
+    print(f"Content: {doc.page_content[:200]}")
