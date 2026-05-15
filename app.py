@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 from langchain_pinecone import PineconeVectorStore
+import pinecone
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
